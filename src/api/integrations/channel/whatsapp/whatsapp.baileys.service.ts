@@ -3342,6 +3342,19 @@ export class BaileysStartupService extends ChannelStartupService {
         viewOnceMessage: {
           message: {
             interactiveMessage: {
+              body: {
+                text: (() => {
+                  let t = '*' + data.title + '*';
+                  if (data?.description) {
+                    t += '\n\n';
+                    t += data.description;
+                    t += '\n';
+                  }
+                  return t;
+                })(),
+              },
+              footer: { text: data?.footer },
+              header: { title: data.title, hasMediaAttachment: false },
               nativeFlowMessage: {
                 buttons: [{ name: this.mapType.get('pix'), buttonParamsJson: this.toJSONString(data.buttons[0]) }],
                 messageParamsJson: JSON.stringify({ from: 'api', templateId: v4() }),
@@ -3434,26 +3447,28 @@ export class BaileysStartupService extends ChannelStartupService {
   }
 
   public async listMessage(data: SendListDto) {
-    return await this.sendMessageWithTyping(
-      data.number,
-      {
-        listMessage: {
-          title: data.title,
-          description: data.description,
-          buttonText: data?.buttonText,
-          footerText: data?.footerText,
-          sections: data.sections,
-          listType: 2,
+    const message: proto.IMessage = {
+      viewOnceMessage: {
+        message: {
+          listMessage: {
+            title: data.title,
+            description: data.description,
+            buttonText: data?.buttonText,
+            footerText: data?.footerText,
+            sections: data.sections,
+            listType: 2,
+          },
         },
       },
-      {
-        delay: data?.delay,
-        presence: 'composing',
-        quoted: data?.quoted,
-        mentionsEveryOne: data?.mentionsEveryOne,
-        mentioned: data?.mentioned,
-      },
-    );
+    };
+
+    return await this.sendMessageWithTyping(data.number, message, {
+      delay: data?.delay,
+      presence: 'composing',
+      quoted: data?.quoted,
+      mentionsEveryOne: data?.mentionsEveryOne,
+      mentioned: data?.mentioned,
+    });
   }
 
   public async contactMessage(data: SendContactDto) {
@@ -4685,6 +4700,14 @@ export class BaileysStartupService extends ChannelStartupService {
       messageRaw.messageType = 'documentMessage';
       messageRaw.message.documentMessage = messageRaw.message.documentWithCaptionMessage.message.documentMessage;
       delete messageRaw.message.documentWithCaptionMessage;
+    }
+
+    if (messageRaw.message.viewOnceMessage?.message?.interactiveMessage) {
+      messageRaw.messageType = 'interactiveMessage';
+    }
+
+    if (messageRaw.message.viewOnceMessage?.message?.listMessage) {
+      messageRaw.messageType = 'listMessage';
     }
 
     const quotedMessage = messageRaw?.contextInfo?.quotedMessage;
